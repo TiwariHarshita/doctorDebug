@@ -32,6 +32,7 @@ model Organization {
   updatedAt DateTime @updatedAt
 
   members OrganizationMember[]
+  projects Project[]
 }
 
 model OrganizationMember {
@@ -45,4 +46,17 @@ model OrganizationMember {
   organization Organization @relation(fields: [organizationId], references: [id])
 
   @@unique([userId, organizationId])
+}
+
+model Project {
+  id             String   @id @default(uuid())
+  name           String
+  slug           String
+  organizationId String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+
+  @@unique([organizationId, slug])
 }
