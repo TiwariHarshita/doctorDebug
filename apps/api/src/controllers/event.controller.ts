@@ -19,26 +19,28 @@ export const createEventController = async (req: Request, res: Response) => {
 
     const apiKeyData = await validateProjectApiKey(rawApiKey);
 
-    const event = await createEvent({
-      projectId: apiKeyData.projectId,
-      level: req.body.level,
-      message: req.body.message,
-      stack: req.body.stack,
-      service: req.body.service,
-      route: req.body.route,
-      environment: req.body.environment,
-      metadata: req.body.metadata
-    });
+   const result = await createEvent({
+  projectId: apiKeyData.projectId,
+  level: req.body.level,
+  message: req.body.message,
+  stack: req.body.stack,
+  service: req.body.service,
+  route: req.body.route,
+  environment: req.body.environment,
+  metadata: req.body.metadata
+});
 
     return res.status(201).json({
-      success: true,
-      message: "Event captured successfully",
-      data: {
-        eventId: event.id,
-        projectId: event.projectId,
-        createdAt: event.createdAt
-      }
-    });
+  success: true,
+  message: "Event captured successfully",
+  data: {
+    eventId: result.event.id,
+    incidentId: result.incident.id,
+    projectId: result.event.projectId,
+    incidentEventCount: result.incident.eventCount,
+    createdAt: result.event.createdAt
+  }
+});
   } catch (error: any) {
     return res.status(400).json({
       success: false,

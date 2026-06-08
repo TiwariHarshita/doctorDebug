@@ -5,6 +5,7 @@ import authRoutes from "./routes/auth.routes";
 import projectRoutes from "./routes/project.routes";
 import apiKeyRoutes from "./routes/apiKey.routes";
 import eventRoutes from "./routes/event.routes";
+import incidentRoutes from "./routes/incident.routes";
 const app = express();
 
 app.use(cors());
@@ -14,4 +15,5 @@ app.use("/auth", authRoutes);
 app.use("/projects", projectRoutes);
 app.use(apiKeyRoutes);
 app.use(eventRoutes);
+app.use(incidentRoutes);
 export default app;

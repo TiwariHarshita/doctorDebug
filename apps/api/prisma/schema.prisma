@@ -59,6 +59,7 @@ model Project {
   organization Organization @relation(fields: [organizationId], references: [id])
   apiKeys     ApiKey[]
   events ApiEvent[]
+  incidents  Incident[]
   @@unique([organizationId, slug])
 }
 
@@ -85,7 +86,41 @@ model ApiEvent {
   environment String?
   metadata    Json?
   projectId   String
+  incidentId  String?
   createdAt   DateTime @default(now())
 
-  project Project @relation(fields: [projectId], references: [id])
+  project  Project   @relation(fields: [projectId], references: [id])
+  incident Incident? @relation(fields: [incidentId], references: [id])
+}
+
+enum IncidentStatus {
+  OPEN
+  RESOLVED
+  IGNORED
+}
+
+enum IncidentSeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+model Incident {
+  id          String           @id @default(uuid())
+  title       String
+  fingerprint String
+  status      IncidentStatus   @default(OPEN)
+  severity    IncidentSeverity @default(MEDIUM)
+  eventCount  Int              @default(1)
+  firstSeenAt DateTime         @default(now())
+  lastSeenAt  DateTime         @default(now())
+  projectId   String
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  project Project    @relation(fields: [projectId], references: [id])
+  events  ApiEvent[]
+
+  @@unique([projectId, fingerprint])
 }

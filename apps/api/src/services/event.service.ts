@@ -1,4 +1,5 @@
 import { prisma } from "../config/prisma";
+import { findOrCreateIncident } from "./incident.service";
 
 type CreateEventInput = {
   projectId: string;
@@ -27,9 +28,19 @@ export const createEvent = async (input: CreateEventInput) => {
     throw new Error("Event level and message are required");
   }
 
+  const incident = await findOrCreateIncident({
+    projectId,
+    level,
+    message,
+    stack,
+    service,
+    route
+  });
+
   const event = await prisma.apiEvent.create({
     data: {
       projectId,
+      incidentId: incident.id,
       level,
       message,
       stack,
@@ -40,5 +51,8 @@ export const createEvent = async (input: CreateEventInput) => {
     }
   });
 
-  return event;
+  return {
+    event,
+    incident
+  };
 };
