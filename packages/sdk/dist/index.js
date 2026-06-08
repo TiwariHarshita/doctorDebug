@@ -1,0 +1,37 @@
+"use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.DebugPilot = void 0;
+const axios_1 = __importDefault(require("axios"));
+class DebugPilot {
+    constructor(config) {
+        this.apiKey = config.apiKey;
+        this.endpoint = config.endpoint || "http://localhost:5050";
+        this.service = config.service;
+        this.environment = config.environment;
+    }
+    async captureError(error, options = {}) {
+        try {
+            await axios_1.default.post(`${this.endpoint}/api/v1/events`, {
+                level: "error",
+                message: error.message,
+                stack: error.stack,
+                service: this.service,
+                route: options.route,
+                environment: this.environment,
+                metadata: options.metadata
+            }, {
+                headers: {
+                    Authorization: `Bearer ${this.apiKey}`,
+                    "Content-Type": "application/json"
+                }
+            });
+        }
+        catch (sendError) {
+            console.error("DebugPilot failed to capture error", sendError);
+        }
+    }
+}
+exports.DebugPilot = DebugPilot;
