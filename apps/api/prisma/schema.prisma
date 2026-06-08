@@ -58,6 +58,7 @@ model Project {
 
   organization Organization @relation(fields: [organizationId], references: [id])
   apiKeys     ApiKey[]
+  events ApiEvent[]
   @@unique([organizationId, slug])
 }
 
@@ -70,6 +71,21 @@ model ApiKey {
   createdAt DateTime  @default(now())
   lastUsedAt DateTime?
   revokedAt DateTime?
+
+  project Project @relation(fields: [projectId], references: [id])
+}
+
+model ApiEvent {
+  id          String   @id @default(uuid())
+  level       String
+  message     String
+  stack       String?
+  service     String?
+  route       String?
+  environment String?
+  metadata    Json?
+  projectId   String
+  createdAt   DateTime @default(now())
 
   project Project @relation(fields: [projectId], references: [id])
 }

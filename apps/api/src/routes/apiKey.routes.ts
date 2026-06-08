@@ -8,10 +8,22 @@ import {
 
 const router = Router();
 
-router.use(requireAuth);
+router.post(
+  "/projects/:projectId/api-keys",
+  requireAuth,
+  createApiKeyController
+);
 
-router.post("/projects/:projectId/api-keys", createApiKeyController);
-router.get("/projects/:projectId/api-keys", getApiKeysController);
-router.delete("/api-keys/:id", revokeApiKeyController);
+router.get(
+  "/projects/:projectId/api-keys",
+  requireAuth,
+  getApiKeysController
+);
+
+router.delete(
+  "/api-keys/:id",
+  requireAuth,
+  revokeApiKeyController
+);
 
 export default router;
