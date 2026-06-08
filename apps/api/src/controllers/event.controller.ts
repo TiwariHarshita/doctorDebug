@@ -1,6 +1,9 @@
 import { Request, Response } from "express";
 import { validateProjectApiKey } from "../services/apiKeyAuth.service";
-import { createEvent } from "../services/event.service";
+import {
+  createEvent,
+  getEventsForProject
+} from "../services/event.service";
 
 export const createEventController = async (req: Request, res: Response) => {
     console.log("event controller hit");
@@ -45,6 +48,37 @@ export const createEventController = async (req: Request, res: Response) => {
     return res.status(400).json({
       success: false,
       message: error.message || "Failed to capture event"
+    });
+  }
+};
+
+import { AuthRequest } from "../middlewares/auth.middleware";
+
+export const getProjectEventsController = async (
+  req: AuthRequest,
+  res: Response
+) => {
+  try {
+    const userId = req.user?.userId;
+    const projectId = req.params.projectId as string;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: "Unauthorized"
+      });
+    }
+
+    const events = await getEventsForProject(projectId, userId);
+
+    return res.status(200).json({
+      success: true,
+      data: events
+    });
+  } catch (error: any) {
+    return res.status(400).json({
+      success: false,
+      message: error.message || "Failed to fetch events"
     });
   }
 };

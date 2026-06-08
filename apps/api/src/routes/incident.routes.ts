@@ -2,7 +2,8 @@ import { Router } from "express";
 import { requireAuth } from "../middlewares/auth.middleware";
 import {
   getIncidentByIdController,
-  getIncidentsController
+  getIncidentsController,
+  updateIncidentStatusController
 } from "../controllers/incident.controller";
 
 const router = Router();
@@ -19,4 +20,9 @@ router.get(
   getIncidentByIdController
 );
 
+router.patch(
+  "/incidents/:id/status",
+  requireAuth,
+  updateIncidentStatusController
+);
 export default router;

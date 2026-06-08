@@ -1,13 +1,18 @@
 import { Router } from "express";
-import { createEventController } from "../controllers/event.controller";
+import {
+  createEventController,
+  getProjectEventsController
+} from "../controllers/event.controller";
+import { requireAuth } from "../middlewares/auth.middleware";
 
 const router = Router();
-router.get("/api/v1/events/test", (req, res) => {
-  res.json({
-    success: true,
-    message: "Event route is connected"
-  });
-});
+
 router.post("/api/v1/events", createEventController);
+
+router.get(
+  "/projects/:projectId/events",
+  requireAuth,
+  getProjectEventsController
+);
 
 export default router;

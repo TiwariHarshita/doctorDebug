@@ -56,3 +56,52 @@ export const createEvent = async (input: CreateEventInput) => {
     incident
   };
 };
+
+
+export const getEventsForProject = async (
+  projectId: string,
+  userId: string
+) => {
+  const project = await prisma.project.findUnique({
+    where: { id: projectId }
+  });
+
+  if (!project) {
+    throw new Error("Project not found");
+  }
+
+  const membership = await prisma.organizationMember.findUnique({
+    where: {
+      userId_organizationId: {
+        userId,
+        organizationId: project.organizationId
+      }
+    }
+  });
+
+  if (!membership) {
+    throw new Error("You do not have access to this project");
+  }
+
+  const events = await prisma.apiEvent.findMany({
+    where: {
+      projectId
+    },
+    include: {
+      incident: {
+        select: {
+          id: true,
+          title: true,
+          status: true,
+          severity: true
+        }
+      }
+    },
+    orderBy: {
+      createdAt: "desc"
+    },
+    take: 50
+  });
+
+  return events;
+};

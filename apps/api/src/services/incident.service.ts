@@ -33,19 +33,24 @@ export const findOrCreateIncident = async (
   });
 
   if (existingIncident) {
-    const updatedIncident = await prisma.incident.update({
-      where: {
-        id: existingIncident.id
+  const updatedIncident = await prisma.incident.update({
+    where: {
+      id: existingIncident.id
+    },
+    data: {
+      eventCount: {
+        increment: 1
       },
-      data: {
-        eventCount: {
-          increment: 1
-        },
-        lastSeenAt: new Date()
-      }
-    });
+      lastSeenAt: new Date(),
+      status:
+        existingIncident.status === "RESOLVED"
+          ? "OPEN"
+          : existingIncident.status
+    }
+  });
 
-    return updatedIncident;
+  return updatedIncident;
+
   }
 
   const severity = input.level === "error" ? "HIGH" : "MEDIUM";
@@ -135,4 +140,51 @@ export const getIncidentByIdForUser = async (
   }
 
   return incident;
+};
+
+type UpdateIncidentStatusInput = {
+  incidentId: string;
+  userId: string;
+  status: "OPEN" | "RESOLVED" | "IGNORED";
+};
+
+export const updateIncidentStatus = async (
+  input: UpdateIncidentStatusInput
+) => {
+  const { incidentId, userId, status } = input;
+
+  const incident = await prisma.incident.findUnique({
+    where: { id: incidentId },
+    include: {
+      project: true
+    }
+  });
+
+  if (!incident) {
+    throw new Error("Incident not found");
+  }
+
+  const membership = await prisma.organizationMember.findUnique({
+    where: {
+      userId_organizationId: {
+        userId,
+        organizationId: incident.project.organizationId
+      }
+    }
+  });
+
+  if (!membership) {
+    throw new Error("You do not have access to this incident");
+  }
+
+  const updatedIncident = await prisma.incident.update({
+    where: {
+      id: incidentId
+    },
+    data: {
+      status
+    }
+  });
+
+  return updatedIncident;
 };
