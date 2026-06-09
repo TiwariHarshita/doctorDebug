@@ -23,30 +23,17 @@ app.get("/health", (req, res) => {
 });
 
 app.post("/checkout/complete", async (req, res) => {
-  try {
-    const user: any = undefined;
+  const user: any = undefined;
 
-    const email = user.userEmail;
+  const email = user.userEmail;
 
-    res.json({
-      success: true,
-      email
-    });
-  } catch (error: any) {
-    await debugPilot.captureError(error, {
-      route: "/checkout/complete",
-      metadata: {
-        orderId: req.body.orderId || "unknown"
-      }
-    });
-
-    res.status(500).json({
-      success: false,
-      message: "Checkout failed"
-    });
-  }
+  res.json({
+    success: true,
+    email
+  });
 });
 
+app.use(debugPilot.expressErrorHandler());
 const PORT = 6060;
 
 app.listen(PORT, () => {

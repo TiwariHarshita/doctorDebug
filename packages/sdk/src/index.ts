@@ -1,4 +1,5 @@
 import axios from "axios";
+import type { Request, Response, NextFunction } from "express";
 
 type DebugPilotConfig = {
   apiKey: string;
@@ -48,5 +49,29 @@ export class DebugPilot {
     } catch (sendError) {
       console.error("DebugPilot failed to capture error", sendError);
     }
+  }
+
+  expressErrorHandler() {
+    return async (
+      error: Error,
+      req: Request,
+      res: Response,
+      next: NextFunction
+    ) => {
+      await this.captureError(error, {
+        route: req.originalUrl || req.url,
+        metadata: {
+          method: req.method,
+          path: req.path,
+          query: req.query,
+          body: req.body
+        }
+      });
+
+      res.status(500).json({
+        success: false,
+        message: "Internal server error"
+      });
+    };
   }
 }

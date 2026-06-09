@@ -1,3 +1,4 @@
+import type { Request, Response, NextFunction } from "express";
 type DebugPilotConfig = {
     apiKey: string;
     endpoint?: string;
@@ -15,5 +16,6 @@ export declare class DebugPilot {
     private environment?;
     constructor(config: DebugPilotConfig);
     captureError(error: Error, options?: CaptureErrorOptions): Promise<void>;
+    expressErrorHandler(): (error: Error, req: Request, res: Response, next: NextFunction) => Promise<void>;
 }
 export {};

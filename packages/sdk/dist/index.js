@@ -33,5 +33,22 @@ class DebugPilot {
             console.error("DebugPilot failed to capture error", sendError);
         }
     }
+    expressErrorHandler() {
+        return async (error, req, res, next) => {
+            await this.captureError(error, {
+                route: req.originalUrl || req.url,
+                metadata: {
+                    method: req.method,
+                    path: req.path,
+                    query: req.query,
+                    body: req.body
+                }
+            });
+            res.status(500).json({
+                success: false,
+                message: "Internal server error"
+            });
+        };
+    }
 }
 exports.DebugPilot = DebugPilot;
