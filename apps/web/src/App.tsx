@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
-import LoginPage from "./LoginPage";
 import axios from "axios";
+import LoginPage from "./LoginPage";
+import ApiKeysPage from "./ApiKeysPage";
 import {
   Bell,
   Bug,
@@ -8,6 +9,7 @@ import {
   ChevronDown,
   Clock,
   FolderKanban,
+  KeyRound,
   LayoutDashboard,
   LogOut,
   Search,
@@ -18,6 +20,8 @@ import {
 import { api } from "./lib/api";
 
 const PROJECT_ID = "b7f922dc-9d2d-4fe4-8a91-82e6f40876cd";
+
+type ActivePage = "dashboard" | "apiKeys";
 
 type ProjectStats = {
   totalEvents: number;
@@ -74,12 +78,13 @@ const activity = [
 ];
 
 const navItems = [
-  { icon: LayoutDashboard, label: "Dashboard", active: true },
-  { icon: FolderKanban, label: "Projects", active: false },
-  { icon: Bug, label: "Incidents", active: false },
-  { icon: ChartNoAxesColumn, label: "Analytics", active: false },
-  { icon: Settings, label: "Settings", active: false }
-];
+  { icon: LayoutDashboard, label: "Dashboard", page: "dashboard" },
+  { icon: FolderKanban, label: "Projects", page: "dashboard" },
+  { icon: Bug, label: "Incidents", page: "dashboard" },
+  { icon: ChartNoAxesColumn, label: "Analytics", page: "dashboard" },
+  { icon: KeyRound, label: "API Keys", page: "apiKeys" },
+  { icon: Settings, label: "Settings", page: "dashboard" }
+] as const;
 
 function getSeverityClass(severity: string) {
   if (severity === "CRITICAL") {
@@ -125,20 +130,22 @@ function formatLastSeen(dateString: string) {
 }
 
 function App() {
-
   const [isAuthenticated, setIsAuthenticated] = useState(() => {
-  return Boolean(localStorage.getItem("debugpilot_token"));
-});
+    return Boolean(localStorage.getItem("debugpilot_token"));
+  });
 
-const [selectedIncident, setSelectedIncident] = useState<IncidentDetail | null>(
-  null
-);
-const [isIncidentDrawerOpen, setIsIncidentDrawerOpen] = useState(false);
-const [isIncidentLoading, setIsIncidentLoading] = useState(false);
+  const [activePage, setActivePage] = useState<ActivePage>("dashboard");
+  const [toastMessage, setToastMessage] = useState("");
+
   const [stats, setStats] = useState<ProjectStats | null>(null);
   const [incidents, setIncidents] = useState<Incident[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
+
+  const [selectedIncident, setSelectedIncident] =
+    useState<IncidentDetail | null>(null);
+  const [isIncidentDrawerOpen, setIsIncidentDrawerOpen] = useState(false);
+  const [isIncidentLoading, setIsIncidentLoading] = useState(false);
 
   const maxActivity = Math.max(...activity.map((item) => item.count));
 
@@ -162,117 +169,134 @@ const [isIncidentLoading, setIsIncidentLoading] = useState(false);
       )[0];
   }, [incidents]);
 
+  const showToast = (message: string) => {
+    setToastMessage(message);
+
+    setTimeout(() => {
+      setToastMessage("");
+    }, 2500);
+  };
+
+  const fetchDashboardData = async () => {
+    try {
+      setIsLoading(true);
+      setErrorMessage("");
+
+      const [statsResponse, incidentsResponse] = await Promise.all([
+        api.get(`/projects/${PROJECT_ID}/stats`),
+        api.get(`/projects/${PROJECT_ID}/incidents`)
+      ]);
+
+      setStats(statsResponse.data.data);
+      setIncidents(incidentsResponse.data.data);
+    } catch (error: unknown) {
+      if (axios.isAxiosError(error)) {
+        setErrorMessage(
+          error.response?.data?.message || "Failed to load dashboard data"
+        );
+      } else {
+        setErrorMessage("Failed to load dashboard data");
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleIncidentClick = async (incidentId: string) => {
+    try {
+      setIsIncidentDrawerOpen(true);
+      setIsIncidentLoading(true);
+      setSelectedIncident(null);
+
+      const response = await api.get(`/incidents/${incidentId}`);
+
+      setSelectedIncident(response.data.data);
+    } catch (error: unknown) {
+      if (axios.isAxiosError(error)) {
+        setErrorMessage(
+          error.response?.data?.message || "Failed to load incident"
+        );
+      } else {
+        setErrorMessage("Failed to load incident");
+      }
+
+      setIsIncidentDrawerOpen(false);
+    } finally {
+      setIsIncidentLoading(false);
+    }
+  };
+
+  const handleUpdateIncidentStatus = async (
+    incidentId: string,
+    status: "OPEN" | "RESOLVED" | "IGNORED"
+  ) => {
+    try {
+      const response = await api.patch(`/incidents/${incidentId}/status`, {
+        status
+      });
+
+      const updatedIncident = response.data.data;
+
+      setSelectedIncident((currentIncident) => {
+        if (!currentIncident) {
+          return currentIncident;
+        }
+
+        return {
+          ...currentIncident,
+          status: updatedIncident.status
+        };
+      });
+
+      setIncidents((currentIncidents) =>
+        currentIncidents.map((incident) =>
+          incident.id === incidentId
+            ? {
+                ...incident,
+                status: updatedIncident.status
+              }
+            : incident
+        )
+      );
+
+      const statsResponse = await api.get(`/projects/${PROJECT_ID}/stats`);
+      setStats(statsResponse.data.data);
+
+      if (status === "RESOLVED") {
+        showToast("Incident marked as resolved");
+      } else if (status === "IGNORED") {
+        showToast("Incident ignored");
+      } else {
+        showToast("Incident reopened");
+      }
+    } catch (error: unknown) {
+      if (axios.isAxiosError(error)) {
+        setErrorMessage(
+          error.response?.data?.message || "Failed to update incident status"
+        );
+      } else {
+        setErrorMessage("Failed to update incident status");
+      }
+    }
+  };
+
   useEffect(() => {
-    if(!isAuthenticated){
+    if (!isAuthenticated) {
       return;
     }
-    const fetchDashboardData = async () => {
-  try {
-    setIsLoading(true);
-    setErrorMessage("");
-
-    const [statsResponse, incidentsResponse] = await Promise.all([
-      api.get(`/projects/${PROJECT_ID}/stats`),
-      api.get(`/projects/${PROJECT_ID}/incidents`)
-    ]);
-
-    setStats(statsResponse.data.data);
-    setIncidents(incidentsResponse.data.data);
-  } catch (error: unknown) {
-    if (axios.isAxiosError(error)) {
-      setErrorMessage(
-        error.response?.data?.message || "Failed to load dashboard data"
-      );
-    } else {
-      setErrorMessage("Failed to load dashboard data");
-    }
-  } finally {
-    setIsLoading(false);
-  }
-};
 
     fetchDashboardData();
   }, [isAuthenticated]);
 
   if (!isAuthenticated) {
-  return (
-    <LoginPage
-      onLoginSuccess={() => {
-        setIsAuthenticated(true);
-      }}
-    />
-  );
-}
-
-  const handleUpdateIncidentStatus = async (
-  incidentId: string,
-  status: "OPEN" | "RESOLVED" | "IGNORED"
-) => {
-  try {
-    const response = await api.patch(`/incidents/${incidentId}/status`, {
-      status
-    });
-
-    const updatedIncident = response.data.data;
-
-    setSelectedIncident((currentIncident) => {
-      if (!currentIncident) {
-        return currentIncident;
-      }
-
-      return {
-        ...currentIncident,
-        status: updatedIncident.status
-      };
-    });
-
-    setIncidents((currentIncidents) =>
-      currentIncidents.map((incident) =>
-        incident.id === incidentId
-          ? {
-              ...incident,
-              status: updatedIncident.status
-            }
-          : incident
-      )
+    return (
+      <LoginPage
+        onLoginSuccess={() => {
+          setIsAuthenticated(true);
+        }}
+      />
     );
-
-    const statsResponse = await api.get(`/projects/${PROJECT_ID}/stats`);
-    setStats(statsResponse.data.data);
-  } catch (error: unknown) {
-    if (axios.isAxiosError(error)) {
-      setErrorMessage(
-        error.response?.data?.message || "Failed to update incident status"
-      );
-    } else {
-      setErrorMessage("Failed to update incident status");
-    }
   }
-};
-
-  const handleIncidentClick = async (incidentId: string) => {
-  try {
-    setIsIncidentDrawerOpen(true);
-    setIsIncidentLoading(true);
-    setSelectedIncident(null);
-
-    const response = await api.get(`/incidents/${incidentId}`);
-
-    setSelectedIncident(response.data.data);
-  } catch (error: unknown) {
-    if (axios.isAxiosError(error)) {
-      setErrorMessage(
-        error.response?.data?.message || "Failed to load incident"
-      );
-    } else {
-      setErrorMessage("Failed to load incident");
-    }
-
-    setIsIncidentDrawerOpen(false);
-  } finally {
-    setIsIncidentLoading(false);
-  }
-};
 
   if (isLoading) {
     return (
@@ -322,8 +346,9 @@ const [isIncidentLoading, setIsIncidentLoading] = useState(false);
             return (
               <button
                 key={item.label}
+                onClick={() => setActivePage(item.page)}
                 className={`flex h-12 w-full items-center gap-3 rounded-2xl px-3 transition ${
-                  item.active
+                  activePage === item.page
                     ? "bg-white text-[#111111]"
                     : "text-white/45 hover:bg-white/10 hover:text-white"
                 }`}
@@ -340,13 +365,13 @@ const [isIncidentLoading, setIsIncidentLoading] = useState(false);
         </nav>
 
         <button
-  onClick={() => {
-    localStorage.removeItem("debugpilot_token");
-    setIsAuthenticated(false);
-  }}
-  className="flex h-12 w-full items-center gap-3 rounded-2xl px-3 text-white/45 transition hover:bg-white/10 hover:text-white"
-  title="Logout"
->
+          onClick={() => {
+            localStorage.removeItem("debugpilot_token");
+            setIsAuthenticated(false);
+          }}
+          className="flex h-12 w-full items-center gap-3 rounded-2xl px-3 text-white/45 transition hover:bg-white/10 hover:text-white"
+          title="Logout"
+        >
           <LogOut size={20} />
 
           <span className="hidden whitespace-nowrap text-sm font-bold group-hover:block">
@@ -355,344 +380,351 @@ const [isIncidentLoading, setIsIncidentLoading] = useState(false);
         </button>
       </aside>
 
-      <main className="flex-1 px-10 py-8">
-        <header className="mb-10 flex items-center justify-between">
-          <div>
-            <h1 className="text-[34px] font-extrabold tracking-[-0.04em] text-[#111111]">
-              Overview
-            </h1>
-            <p className="mt-1 text-[15px] font-medium text-[#6B7280]">
-              DebugPilot monitoring dashboard
-            </p>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <button className="flex h-12 w-12 items-center justify-center rounded-full bg-white text-[#111111] shadow-sm ring-1 ring-black/5">
-              <Search size={20} />
-            </button>
-
-            <button className="flex h-12 w-12 items-center justify-center rounded-full bg-white text-[#111111] shadow-sm ring-1 ring-black/5">
-              <Bell size={19} />
-            </button>
-
-            <div className="flex h-12 items-center gap-3 rounded-full bg-white px-3 pr-5 shadow-sm ring-1 ring-black/5">
-              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#DDEEFF] text-sm font-bold text-[#2563EB]">
-                H
-              </div>
-              <span className="text-sm font-bold text-[#111111]">
-                Harshita
-              </span>
-            </div>
-          </div>
-        </header>
-
-        <section className="mb-9">
-          <div className="mb-5 flex items-end justify-between">
+      {activePage === "apiKeys" ? (
+        <ApiKeysPage
+          projectId={PROJECT_ID}
+          onBack={() => setActivePage("dashboard")}
+        />
+      ) : (
+        <main className="flex-1 px-10 py-8">
+          <header className="mb-10 flex items-center justify-between">
             <div>
-              <div className="flex items-center gap-3">
-                <button className="flex items-center gap-2 rounded-full bg-white px-4 py-2 text-[22px] font-extrabold tracking-[-0.035em] shadow-sm ring-1 ring-black/5">
-                  Checkout Backend
-                  <ChevronDown size={18} />
-                </button>
+              <h1 className="text-[34px] font-extrabold tracking-[-0.04em] text-[#111111]">
+                Overview
+              </h1>
+              <p className="mt-1 text-[15px] font-medium text-[#6B7280]">
+                DebugPilot monitoring dashboard
+              </p>
+            </div>
 
-                <span className="flex items-center gap-2 rounded-full bg-[#E7F9EE] px-3 py-2 text-xs font-extrabold text-[#16A34A]">
-                  <span className="h-2 w-2 rounded-full bg-[#16A34A]" />
-                  Live
+            <div className="flex items-center gap-3">
+              <button className="flex h-12 w-12 items-center justify-center rounded-full bg-white text-[#111111] shadow-sm ring-1 ring-black/5">
+                <Search size={20} />
+              </button>
+
+              <button className="flex h-12 w-12 items-center justify-center rounded-full bg-white text-[#111111] shadow-sm ring-1 ring-black/5">
+                <Bell size={19} />
+              </button>
+
+              <div className="flex h-12 items-center gap-3 rounded-full bg-white px-3 pr-5 shadow-sm ring-1 ring-black/5">
+                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#DDEEFF] text-sm font-bold text-[#2563EB]">
+                  H
+                </div>
+                <span className="text-sm font-bold text-[#111111]">
+                  Harshita
                 </span>
               </div>
-
-              <p className="mt-3 text-sm font-medium text-[#6B7280]">
-                Project health and recent backend errors
-              </p>
             </div>
+          </header>
 
-            <button className="rounded-full bg-[#111111] px-5 py-3 text-sm font-bold text-white shadow-sm">
-              View Project
-            </button>
-          </div>
-
-          <div className="grid grid-cols-4 gap-5">
-            <div className="rounded-[28px] bg-[#DDEEFF] p-6">
-              <p className="text-sm font-semibold text-[#4B5563]">
-                Total Events
-              </p>
-              <h3 className="mt-4 text-[38px] font-extrabold tracking-[-0.04em]">
-                {stats?.totalEvents ?? 0}
-              </h3>
-              <p className="mt-3 text-sm font-medium text-[#6B7280]">
-                Captured from SDK
-              </p>
-            </div>
-
-            <div className="rounded-[28px] bg-[#EEE5FF] p-6">
-              <p className="text-sm font-semibold text-[#4B5563]">
-                Open Incidents
-              </p>
-              <h3 className="mt-4 text-[38px] font-extrabold tracking-[-0.04em]">
-                {stats?.openIncidents ?? 0}
-              </h3>
-              <p className="mt-3 text-sm font-bold text-[#EF4444]">
-                Needs attention
-              </p>
-            </div>
-
-            <div className="rounded-[28px] bg-[#DDF5E5] p-6">
-              <p className="text-sm font-semibold text-[#4B5563]">
-                Resolved
-              </p>
-              <h3 className="mt-4 text-[38px] font-extrabold tracking-[-0.04em]">
-                {stats?.resolvedIncidents ?? 0}
-              </h3>
-              <p className="mt-3 text-sm font-bold text-[#16A34A]">
-                Fixed incidents
-              </p>
-            </div>
-
-            <div className="rounded-[28px] bg-[#FFF3CC] p-6">
-              <p className="text-sm font-semibold text-[#4B5563]">
-                Top Service
-              </p>
-              <h3 className="mt-5 text-[24px] font-extrabold tracking-[-0.04em]">
-                {topService?.service ?? "No service"}
-              </h3>
-              <p className="mt-5 text-sm font-medium text-[#6B7280]">
-                {topService?.count ?? 0} captured errors
-              </p>
-            </div>
-          </div>
-        </section>
-
-        <section className="mb-7 grid grid-cols-[1.2fr_0.8fr] gap-7">
-          <div className="rounded-[32px] bg-white p-7 shadow-sm ring-1 ring-black/5">
-            <div className="mb-7 flex items-center justify-between">
+          <section className="mb-9">
+            <div className="mb-5 flex items-end justify-between">
               <div>
-                <h2 className="text-[22px] font-extrabold tracking-[-0.035em]">
-                  Error Activity
-                </h2>
-                <p className="mt-1 text-sm font-medium text-[#6B7280]">
-                  Errors captured over the last 7 days
+                <div className="flex items-center gap-3">
+                  <button className="flex items-center gap-2 rounded-full bg-white px-4 py-2 text-[22px] font-extrabold tracking-[-0.035em] shadow-sm ring-1 ring-black/5">
+                    Checkout Backend
+                    <ChevronDown size={18} />
+                  </button>
+
+                  <span className="flex items-center gap-2 rounded-full bg-[#E7F9EE] px-3 py-2 text-xs font-extrabold text-[#16A34A]">
+                    <span className="h-2 w-2 rounded-full bg-[#16A34A]" />
+                    Live
+                  </span>
+                </div>
+
+                <p className="mt-3 text-sm font-medium text-[#6B7280]">
+                  Project health and recent backend errors
                 </p>
               </div>
 
-              <span className="rounded-full bg-[#F3F4F6] px-4 py-2 text-sm font-bold text-[#4B5563]">
-                Last 7 days
-              </span>
-            </div>
-
-            <div className="flex h-[180px] items-end gap-5">
-              {activity.map((item) => {
-                const height = (item.count / maxActivity) * 130 + 25;
-
-                return (
-                  <div
-                    key={item.day}
-                    className="flex flex-1 flex-col items-center gap-3"
-                  >
-                    <div className="flex h-[155px] w-full items-end justify-center rounded-2xl bg-[#F7F8FB] px-3">
-                      <div
-                        className="w-full max-w-[42px] rounded-t-2xl bg-[#111111]"
-                        style={{ height }}
-                      />
-                    </div>
-
-                    <span className="text-xs font-extrabold text-[#9CA3AF]">
-                      {item.day}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          <div className="rounded-[32px] bg-white p-7 shadow-sm ring-1 ring-black/5">
-            <div className="mb-5 flex items-center gap-3">
-              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#FFF3CC]">
-                <Clock size={20} />
-              </div>
-
-              <div>
-                <h2 className="text-[22px] font-extrabold tracking-[-0.035em]">
-                  Response Focus
-                </h2>
-                <p className="text-sm font-medium text-[#6B7280]">
-                  Most urgent issue
-                </p>
-              </div>
-            </div>
-
-            <div className="rounded-[24px] bg-[#FFF7E8] p-5">
-              <span
-                className={`rounded-full px-3 py-1.5 text-xs font-extrabold ${getSeverityClass(
-                  mostUrgentIncident?.severity || "LOW"
-                )}`}
-              >
-                {mostUrgentIncident?.severity || "LOW"}
-              </span>
-
-              <h3 className="mt-4 text-xl font-extrabold leading-tight tracking-[-0.035em]">
-                {mostUrgentIncident?.title || "No urgent incidents"}
-              </h3>
-
-              <p className="mt-3 text-sm font-medium leading-6 text-[#6B7280]">
-                {mostUrgentIncident
-                  ? `${mostUrgentIncident.eventCount} events detected. Review this incident before lower severity issues.`
-                  : "Everything looks stable right now."}
-              </p>
-            </div>
-          </div>
-        </section>
-
-        <section className="grid grid-cols-[1.55fr_1fr] gap-7">
-          <div>
-            <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-[22px] font-extrabold tracking-[-0.035em]">
-                Recent Incidents
-              </h2>
-
-              <button className="rounded-full bg-white px-5 py-3 text-sm font-bold shadow-sm ring-1 ring-black/5">
-                View all
+              <button className="rounded-full bg-[#111111] px-5 py-3 text-sm font-bold text-white shadow-sm">
+                View Project
               </button>
             </div>
 
-            <div className="overflow-hidden rounded-[28px] bg-white shadow-sm ring-1 ring-black/5">
-              <table className="w-full text-left">
-                <thead>
-                  <tr className="border-b border-gray-100 bg-[#FAFAFB] text-xs font-extrabold uppercase tracking-[0.08em] text-[#9CA3AF]">
-                    <th className="px-6 py-5">Issue</th>
-                    <th className="px-6 py-5">Severity</th>
-                    <th className="px-6 py-5">Status</th>
-                    <th className="px-6 py-5">Events</th>
-                    <th className="px-6 py-5">Last Seen</th>
-                  </tr>
-                </thead>
+            <div className="grid grid-cols-4 gap-5">
+              <div className="rounded-[28px] bg-[#DDEEFF] p-6">
+                <p className="text-sm font-semibold text-[#4B5563]">
+                  Total Events
+                </p>
+                <h3 className="mt-4 text-[38px] font-extrabold tracking-[-0.04em]">
+                  {stats?.totalEvents ?? 0}
+                </h3>
+                <p className="mt-3 text-sm font-medium text-[#6B7280]">
+                  Captured from SDK
+                </p>
+              </div>
 
-                <tbody>
-                  {incidents.map((incident) => (
-                    <tr
-  key={incident.id}
-  onClick={() => handleIncidentClick(incident.id)}
-  className="cursor-pointer border-b border-gray-100 transition hover:bg-[#FAFAFB] last:border-b-0"
->
-                      <td className="px-6 py-5">
-                        <p className="max-w-[320px] text-sm font-extrabold leading-5 text-[#111827]">
-                          {incident.title}
-                        </p>
-                        <p className="mt-1 text-sm font-medium text-[#6B7280]">
-                          Incident ID: {incident.id.slice(0, 8)}
-                        </p>
-                      </td>
+              <div className="rounded-[28px] bg-[#EEE5FF] p-6">
+                <p className="text-sm font-semibold text-[#4B5563]">
+                  Open Incidents
+                </p>
+                <h3 className="mt-4 text-[38px] font-extrabold tracking-[-0.04em]">
+                  {stats?.openIncidents ?? 0}
+                </h3>
+                <p className="mt-3 text-sm font-bold text-[#EF4444]">
+                  Needs attention
+                </p>
+              </div>
 
-                      <td className="px-6 py-5">
-                        <span
-                          className={`rounded-full px-3 py-1.5 text-xs font-extrabold ${getSeverityClass(
-                            incident.severity
-                          )}`}
-                        >
-                          {incident.severity}
-                        </span>
-                      </td>
+              <div className="rounded-[28px] bg-[#DDF5E5] p-6">
+                <p className="text-sm font-semibold text-[#4B5563]">
+                  Resolved
+                </p>
+                <h3 className="mt-4 text-[38px] font-extrabold tracking-[-0.04em]">
+                  {stats?.resolvedIncidents ?? 0}
+                </h3>
+                <p className="mt-3 text-sm font-bold text-[#16A34A]">
+                  Fixed incidents
+                </p>
+              </div>
 
-                      <td className="px-6 py-5">
-                        <span
-                          className={`rounded-full px-3 py-1.5 text-xs font-extrabold ${getStatusClass(
-                            incident.status
-                          )}`}
-                        >
-                          {incident.status}
-                        </span>
-                      </td>
-
-                      <td className="px-6 py-5 text-sm font-extrabold">
-                        {incident.eventCount}
-                      </td>
-
-                      <td className="px-6 py-5 text-sm font-semibold text-[#6B7280]">
-                        {formatLastSeen(incident.lastSeenAt)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              <div className="rounded-[28px] bg-[#FFF3CC] p-6">
+                <p className="text-sm font-semibold text-[#4B5563]">
+                  Top Service
+                </p>
+                <h3 className="mt-5 text-[24px] font-extrabold tracking-[-0.04em]">
+                  {topService?.service ?? "No service"}
+                </h3>
+                <p className="mt-5 text-sm font-medium text-[#6B7280]">
+                  {topService?.count ?? 0} captured errors
+                </p>
+              </div>
             </div>
-          </div>
+          </section>
 
-          <aside className="space-y-6">
-            <div className="rounded-[32px] bg-[#101010] p-8 text-white shadow-sm">
-              <div className="mx-auto mb-5 flex h-12 w-12 items-center justify-center rounded-2xl bg-white/10">
-                <ShieldCheck size={24} />
-              </div>
-
-              <p className="text-center text-sm font-semibold text-white/55">
-                SDK Setup
-              </p>
-
-              <h3 className="mt-4 text-center text-[26px] font-extrabold leading-tight tracking-[-0.04em]">
-                Capture errors automatically
-              </h3>
-
-              <p className="mx-auto mt-4 max-w-sm text-center text-sm font-medium leading-6 text-white/55">
-                Add DebugPilot middleware once and monitor your backend in real
-                time.
-              </p>
-
-              <div className="mt-7 space-y-3">
-                <div className="flex items-center gap-3 rounded-2xl bg-white/10 px-4 py-3">
-                  <span className="flex h-7 w-7 items-center justify-center rounded-full bg-white text-xs font-extrabold text-[#111111]">
-                    1
-                  </span>
-                  <p className="text-sm font-bold text-white/80">
-                    Install SDK
+          <section className="mb-7 grid grid-cols-[1.2fr_0.8fr] gap-7">
+            <div className="rounded-[32px] bg-white p-7 shadow-sm ring-1 ring-black/5">
+              <div className="mb-7 flex items-center justify-between">
+                <div>
+                  <h2 className="text-[22px] font-extrabold tracking-[-0.035em]">
+                    Error Activity
+                  </h2>
+                  <p className="mt-1 text-sm font-medium text-[#6B7280]">
+                    Errors captured over the last 7 days
                   </p>
                 </div>
 
-                <div className="flex items-center gap-3 rounded-2xl bg-white/10 px-4 py-3">
-                  <span className="flex h-7 w-7 items-center justify-center rounded-full bg-white text-xs font-extrabold text-[#111111]">
-                    2
-                  </span>
-                  <p className="text-sm font-bold text-white/80">
-                    Add project API key
-                  </p>
+                <span className="rounded-full bg-[#F3F4F6] px-4 py-2 text-sm font-bold text-[#4B5563]">
+                  Last 7 days
+                </span>
+              </div>
+
+              <div className="flex h-[180px] items-end gap-5">
+                {activity.map((item) => {
+                  const height = (item.count / maxActivity) * 130 + 25;
+
+                  return (
+                    <div
+                      key={item.day}
+                      className="flex flex-1 flex-col items-center gap-3"
+                    >
+                      <div className="flex h-[155px] w-full items-end justify-center rounded-2xl bg-[#F7F8FB] px-3">
+                        <div
+                          className="w-full max-w-[42px] rounded-t-2xl bg-[#111111]"
+                          style={{ height }}
+                        />
+                      </div>
+
+                      <span className="text-xs font-extrabold text-[#9CA3AF]">
+                        {item.day}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="rounded-[32px] bg-white p-7 shadow-sm ring-1 ring-black/5">
+              <div className="mb-5 flex items-center gap-3">
+                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#FFF3CC]">
+                  <Clock size={20} />
                 </div>
 
-                <div className="flex items-center gap-3 rounded-2xl bg-white/10 px-4 py-3">
-                  <span className="flex h-7 w-7 items-center justify-center rounded-full bg-white text-xs font-extrabold text-[#111111]">
-                    3
-                  </span>
-                  <p className="text-sm font-bold text-white/80">
-                    Attach Express middleware
+                <div>
+                  <h2 className="text-[22px] font-extrabold tracking-[-0.035em]">
+                    Response Focus
+                  </h2>
+                  <p className="text-sm font-medium text-[#6B7280]">
+                    Most urgent issue
                   </p>
                 </div>
               </div>
 
-              <div className="mt-6 rounded-2xl bg-white/10 px-5 py-4 text-center font-mono text-[13px] font-semibold text-white/80">
-                app.use(debugPilot.expressErrorHandler())
-              </div>
+              <div className="rounded-[24px] bg-[#FFF7E8] p-5">
+                <span
+                  className={`rounded-full px-3 py-1.5 text-xs font-extrabold ${getSeverityClass(
+                    mostUrgentIncident?.severity || "LOW"
+                  )}`}
+                >
+                  {mostUrgentIncident?.severity || "LOW"}
+                </span>
 
-              <div className="mt-6 flex justify-center">
-                <button className="rounded-full bg-[#DDEEFF] px-6 py-3 text-sm font-extrabold text-[#111111]">
-                  View Docs
+                <h3 className="mt-4 text-xl font-extrabold leading-tight tracking-[-0.035em]">
+                  {mostUrgentIncident?.title || "No urgent incidents"}
+                </h3>
+
+                <p className="mt-3 text-sm font-medium leading-6 text-[#6B7280]">
+                  {mostUrgentIncident
+                    ? `${mostUrgentIncident.eventCount} events detected. Review this incident before lower severity issues.`
+                    : "Everything looks stable right now."}
+                </p>
+              </div>
+            </div>
+          </section>
+
+          <section className="grid grid-cols-[1.55fr_1fr] gap-7">
+            <div>
+              <div className="mb-4 flex items-center justify-between">
+                <h2 className="text-[22px] font-extrabold tracking-[-0.035em]">
+                  Recent Incidents
+                </h2>
+
+                <button className="rounded-full bg-white px-5 py-3 text-sm font-bold shadow-sm ring-1 ring-black/5">
+                  View all
                 </button>
               </div>
+
+              <div className="overflow-hidden rounded-[28px] bg-white shadow-sm ring-1 ring-black/5">
+                <table className="w-full text-left">
+                  <thead>
+                    <tr className="border-b border-gray-100 bg-[#FAFAFB] text-xs font-extrabold uppercase tracking-[0.08em] text-[#9CA3AF]">
+                      <th className="px-6 py-5">Issue</th>
+                      <th className="px-6 py-5">Severity</th>
+                      <th className="px-6 py-5">Status</th>
+                      <th className="px-6 py-5">Events</th>
+                      <th className="px-6 py-5">Last Seen</th>
+                    </tr>
+                  </thead>
+
+                  <tbody>
+                    {incidents.map((incident) => (
+                      <tr
+                        key={incident.id}
+                        onClick={() => handleIncidentClick(incident.id)}
+                        className="cursor-pointer border-b border-gray-100 transition hover:bg-[#FAFAFB] last:border-b-0"
+                      >
+                        <td className="px-6 py-5">
+                          <p className="max-w-[320px] text-sm font-extrabold leading-5 text-[#111827]">
+                            {incident.title}
+                          </p>
+                          <p className="mt-1 text-sm font-medium text-[#6B7280]">
+                            Incident ID: {incident.id.slice(0, 8)}
+                          </p>
+                        </td>
+
+                        <td className="px-6 py-5">
+                          <span
+                            className={`rounded-full px-3 py-1.5 text-xs font-extrabold ${getSeverityClass(
+                              incident.severity
+                            )}`}
+                          >
+                            {incident.severity}
+                          </span>
+                        </td>
+
+                        <td className="px-6 py-5">
+                          <span
+                            className={`rounded-full px-3 py-1.5 text-xs font-extrabold ${getStatusClass(
+                              incident.status
+                            )}`}
+                          >
+                            {incident.status}
+                          </span>
+                        </td>
+
+                        <td className="px-6 py-5 text-sm font-extrabold">
+                          {incident.eventCount}
+                        </td>
+
+                        <td className="px-6 py-5 text-sm font-semibold text-[#6B7280]">
+                          {formatLastSeen(incident.lastSeenAt)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
 
-            <div className="rounded-[32px] bg-white p-8 text-center shadow-sm ring-1 ring-black/5">
-              <p className="text-sm font-semibold text-[#6B7280]">
-                Top Route
-              </p>
+            <aside className="space-y-6">
+              <div className="rounded-[32px] bg-[#101010] p-8 text-white shadow-sm">
+                <div className="mx-auto mb-5 flex h-12 w-12 items-center justify-center rounded-2xl bg-white/10">
+                  <ShieldCheck size={24} />
+                </div>
 
-              <h3 className="mt-5 text-[25px] font-extrabold tracking-[-0.04em]">
-                {topRoute?.route ?? "No route"}
-              </h3>
+                <p className="text-center text-sm font-semibold text-white/55">
+                  SDK Setup
+                </p>
 
-              <p className="mx-auto mt-4 max-w-xs text-sm font-medium leading-6 text-[#6B7280]">
-                {topRoute
-                  ? `${topRoute.count} captured errors from this route.`
-                  : "No route activity yet."}
-              </p>
-            </div>
-          </aside>
-        </section>
-          </main>
+                <h3 className="mt-4 text-center text-[26px] font-extrabold leading-tight tracking-[-0.04em]">
+                  Capture errors automatically
+                </h3>
+
+                <p className="mx-auto mt-4 max-w-sm text-center text-sm font-medium leading-6 text-white/55">
+                  Add DebugPilot middleware once and monitor your backend in real
+                  time.
+                </p>
+
+                <div className="mt-7 space-y-3">
+                  <div className="flex items-center gap-3 rounded-2xl bg-white/10 px-4 py-3">
+                    <span className="flex h-7 w-7 items-center justify-center rounded-full bg-white text-xs font-extrabold text-[#111111]">
+                      1
+                    </span>
+                    <p className="text-sm font-bold text-white/80">
+                      Install SDK
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-3 rounded-2xl bg-white/10 px-4 py-3">
+                    <span className="flex h-7 w-7 items-center justify-center rounded-full bg-white text-xs font-extrabold text-[#111111]">
+                      2
+                    </span>
+                    <p className="text-sm font-bold text-white/80">
+                      Add project API key
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-3 rounded-2xl bg-white/10 px-4 py-3">
+                    <span className="flex h-7 w-7 items-center justify-center rounded-full bg-white text-xs font-extrabold text-[#111111]">
+                      3
+                    </span>
+                    <p className="text-sm font-bold text-white/80">
+                      Attach Express middleware
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mt-6 rounded-2xl bg-white/10 px-5 py-4 text-center font-mono text-[13px] font-semibold text-white/80">
+                  app.use(debugPilot.expressErrorHandler())
+                </div>
+
+                <div className="mt-6 flex justify-center">
+                  <button className="rounded-full bg-[#DDEEFF] px-6 py-3 text-sm font-extrabold text-[#111111]">
+                    View Docs
+                  </button>
+                </div>
+              </div>
+
+              <div className="rounded-[32px] bg-white p-8 text-center shadow-sm ring-1 ring-black/5">
+                <p className="text-sm font-semibold text-[#6B7280]">
+                  Top Route
+                </p>
+
+                <h3 className="mt-5 text-[25px] font-extrabold tracking-[-0.04em]">
+                  {topRoute?.route ?? "No route"}
+                </h3>
+
+                <p className="mx-auto mt-4 max-w-xs text-sm font-medium leading-6 text-[#6B7280]">
+                  {topRoute
+                    ? `${topRoute.count} captured errors from this route.`
+                    : "No route activity yet."}
+                </p>
+              </div>
+            </aside>
+          </section>
+        </main>
+      )}
 
       {isIncidentDrawerOpen && (
         <div className="fixed inset-0 z-50 flex justify-end bg-black/25">
@@ -732,39 +764,46 @@ const [isIncidentLoading, setIsIncidentLoading] = useState(false);
             {!isIncidentLoading && selectedIncident && (
               <div className="space-y-6">
                 <div className="flex flex-wrap gap-3">
-  {selectedIncident.status !== "RESOLVED" && (
-    <button
-      onClick={() =>
-        handleUpdateIncidentStatus(selectedIncident.id, "RESOLVED")
-      }
-      className="rounded-full bg-[#DDF8E7] px-5 py-3 text-sm font-extrabold text-[#16A34A]"
-    >
-      Mark Resolved
-    </button>
-  )}
+                  {selectedIncident.status !== "RESOLVED" && (
+                    <button
+                      onClick={() =>
+                        handleUpdateIncidentStatus(
+                          selectedIncident.id,
+                          "RESOLVED"
+                        )
+                      }
+                      className="rounded-full bg-[#DDF8E7] px-5 py-3 text-sm font-extrabold text-[#16A34A]"
+                    >
+                      Mark Resolved
+                    </button>
+                  )}
 
-  {selectedIncident.status !== "IGNORED" && (
-    <button
-      onClick={() =>
-        handleUpdateIncidentStatus(selectedIncident.id, "IGNORED")
-      }
-      className="rounded-full bg-[#F3F4F6] px-5 py-3 text-sm font-extrabold text-[#4B5563]"
-    >
-      Ignore
-    </button>
-  )}
+                  {selectedIncident.status !== "IGNORED" && (
+                    <button
+                      onClick={() =>
+                        handleUpdateIncidentStatus(
+                          selectedIncident.id,
+                          "IGNORED"
+                        )
+                      }
+                      className="rounded-full bg-[#F3F4F6] px-5 py-3 text-sm font-extrabold text-[#4B5563]"
+                    >
+                      Ignore
+                    </button>
+                  )}
 
-  {selectedIncident.status !== "OPEN" && (
-    <button
-      onClick={() =>
-        handleUpdateIncidentStatus(selectedIncident.id, "OPEN")
-      }
-      className="rounded-full bg-[#FFE1E1] px-5 py-3 text-sm font-extrabold text-[#DC2626]"
-    >
-      Reopen
-    </button>
-  )}
-</div>
+                  {selectedIncident.status !== "OPEN" && (
+                    <button
+                      onClick={() =>
+                        handleUpdateIncidentStatus(selectedIncident.id, "OPEN")
+                      }
+                      className="rounded-full bg-[#FFE1E1] px-5 py-3 text-sm font-extrabold text-[#DC2626]"
+                    >
+                      Reopen
+                    </button>
+                  )}
+                </div>
+
                 <div className="grid grid-cols-2 gap-4">
                   <div className="rounded-[24px] bg-[#F7F8FB] p-5">
                     <p className="text-xs font-extrabold uppercase tracking-[0.08em] text-[#9CA3AF]">
@@ -877,6 +916,12 @@ const [isIncidentLoading, setIsIncidentLoading] = useState(false);
               </div>
             )}
           </aside>
+        </div>
+      )}
+
+      {toastMessage && (
+        <div className="fixed bottom-6 left-1/2 z-[60] -translate-x-1/2 rounded-full bg-[#101010] px-6 py-4 text-sm font-extrabold text-white shadow-2xl">
+          {toastMessage}
         </div>
       )}
     </div>
