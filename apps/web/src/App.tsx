@@ -3,6 +3,7 @@ import axios from "axios";
 import LoginPage from "./LoginPage";
 import ApiKeysPage from "./ApiKeysPage";
 import EventsPage from "./EventsPage";
+import RegisterPage from "./RegisterPage";
 import {
   Bell,
   Bug,
@@ -16,6 +17,7 @@ import {
   Search,
   Settings,
   ShieldCheck,
+  Sparkles,
   Zap
 } from "lucide-react";
 import {
@@ -27,7 +29,7 @@ import {
 } from "react-router-dom";
 import { api } from "./lib/api";
 
-const FALLBACK_PROJECT_ID = "b7f922dc-9d2d-4fe4-8a91-82e6f40876cd";
+//const FALLBACK_PROJECT_ID = "b7f922dc-9d2d-4fe4-8a91-82e6f40876cd";
 
 type Project = {
   id: string;
@@ -52,6 +54,11 @@ type ProjectStats = {
     route: string;
     count: number;
   }[];
+};
+type CurrentUser = {
+  id: string;
+  name: string;
+  email: string;
 };
 
 type Incident = {
@@ -80,6 +87,15 @@ type IncidentEvent = {
 
 type IncidentDetail = Incident & {
   events: IncidentEvent[];
+};
+
+type AiAnalysis = {
+  rootCause: string;
+  suggestedFix: string;
+  debugChecklist: string[];
+  severityReason: string;
+  preventionTip: string;
+  providerError?: string;
 };
 
 const activity = [
@@ -151,10 +167,10 @@ function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(() => {
     return Boolean(localStorage.getItem("debugpilot_token"));
   });
-
+  const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
   const [projects, setProjects] = useState<Project[]>([]);
   const [selectedProjectId, setSelectedProjectId] =
-    useState(FALLBACK_PROJECT_ID);
+    useState("");
 
   const [toastMessage, setToastMessage] = useState("");
 
@@ -167,6 +183,9 @@ function App() {
     useState<IncidentDetail | null>(null);
   const [isIncidentDrawerOpen, setIsIncidentDrawerOpen] = useState(false);
   const [isIncidentLoading, setIsIncidentLoading] = useState(false);
+
+  const [aiAnalysis, setAiAnalysis] = useState<AiAnalysis | null>(null);
+  const [isAiLoading, setIsAiLoading] = useState(false);
 
   const maxActivity = Math.max(...activity.map((item) => item.count));
 
@@ -202,35 +221,59 @@ function App() {
   };
 
   const fetchProjects = async () => {
-    try {
-      const response = await api.get("/projects");
-      const data = response.data.data;
+  try {
+    setIsLoading(true);
+    setErrorMessage("");
 
-      const projectList: Project[] = Array.isArray(data)
-        ? data
-        : data.projects || [];
+    const response = await api.get("/projects");
+    const data = response.data.data;
 
-      setProjects(projectList);
+    const projectList: Project[] = Array.isArray(data)
+      ? data
+      : data.projects || [];
 
-      if (projectList.length > 0) {
-        setSelectedProjectId((currentProjectId) => {
-          const stillExists = projectList.some(
-            (project) => project.id === currentProjectId
-          );
+    setProjects(projectList);
 
-          return stillExists ? currentProjectId : projectList[0].id;
-        });
-      }
-    } catch (error: unknown) {
-      if (axios.isAxiosError(error)) {
-        setErrorMessage(
-          error.response?.data?.message || "Failed to load projects"
+    if (projectList.length > 0) {
+      setSelectedProjectId((currentProjectId) => {
+        const stillExists = projectList.some(
+          (project) => project.id === currentProjectId
         );
-      } else {
-        setErrorMessage("Failed to load projects");
-      }
+
+        return stillExists ? currentProjectId : projectList[0].id;
+      });
+    } else {
+      setSelectedProjectId("");
+      setStats(null);
+      setIncidents([]);
+      setIsLoading(false);
     }
-  };
+  } catch (error: unknown) {
+    if (axios.isAxiosError(error)) {
+      setErrorMessage(
+        error.response?.data?.message || "Failed to load projects"
+      );
+    } else {
+      setErrorMessage("Failed to load projects");
+    }
+
+    setIsLoading(false);
+  }
+};
+    const fetchCurrentUser = async () => {
+  try {
+    const response = await api.get("/auth/me");
+
+    const user =
+      response.data.data?.user ||
+      response.data.user ||
+      response.data.data;
+
+    setCurrentUser(user);
+  } catch {
+    setCurrentUser(null);
+  }
+};
 
   const fetchDashboardData = async () => {
     try {
@@ -262,6 +305,7 @@ function App() {
       setIsIncidentDrawerOpen(true);
       setIsIncidentLoading(true);
       setSelectedIncident(null);
+      setAiAnalysis(null);
 
       const response = await api.get(`/incidents/${incidentId}`);
 
@@ -337,16 +381,49 @@ function App() {
     }
   };
 
-  useEffect(() => {
-    if (!isAuthenticated) {
+  const handleAnalyzeIncident = async () => {
+    if (!selectedIncident) {
       return;
     }
 
-    fetchProjects();
-  }, [isAuthenticated]);
+    try {
+      setIsAiLoading(true);
+      setAiAnalysis(null);
+
+      const response = await api.post(
+        `/incidents/${selectedIncident.id}/analyze`
+      );
+
+      setAiAnalysis(response.data.data);
+      showToast("AI analysis generated");
+    } catch (error: unknown) {
+      if (axios.isAxiosError(error)) {
+        setErrorMessage(
+          error.response?.data?.message || "Failed to analyze incident"
+        );
+      } else {
+        setErrorMessage("Failed to analyze incident");
+      }
+    } finally {
+      setIsAiLoading(false);
+    }
+  };
 
   useEffect(() => {
-    if (!isAuthenticated || !selectedProjectId) {
+  if (!isAuthenticated) {
+    return;
+  }
+
+  fetchCurrentUser();
+  fetchProjects();
+}, [isAuthenticated]);
+
+  useEffect(() => {
+    if (!isAuthenticated)
+        {
+      return;
+    }
+    if(!selectedProjectId){
       return;
     }
 
@@ -354,15 +431,38 @@ function App() {
   }, [isAuthenticated, selectedProjectId]);
 
   if (!isAuthenticated) {
-    return (
-      <LoginPage
-        onLoginSuccess={() => {
-          setIsAuthenticated(true);
-          navigate("/dashboard");
-        }}
+  return (
+    <Routes>
+      <Route
+        path="/register"
+        element={
+          <RegisterPage
+            onRegisterSuccess={() => {
+              setIsAuthenticated(true);
+              navigate("/dashboard");
+            }}
+            onGoToLogin={() => navigate("/login")}
+          />
+        }
       />
-    );
-  }
+
+      <Route
+        path="/login"
+        element={
+          <LoginPage
+            onLoginSuccess={() => {
+              setIsAuthenticated(true);
+              navigate("/dashboard");
+            }}
+            onGoToRegister={() => navigate("/register")}
+          />
+        }
+      />
+
+      <Route path="*" element={<Navigate to="/login" replace />} />
+    </Routes>
+  );
+}
 
   if (isLoading) {
     return (
@@ -414,9 +514,11 @@ function App() {
 
           <div className="flex h-12 items-center gap-3 rounded-full bg-white px-3 pr-5 shadow-sm ring-1 ring-black/5">
             <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#DDEEFF] text-sm font-bold text-[#2563EB]">
-              H
-            </div>
-            <span className="text-sm font-bold text-[#111111]">Harshita</span>
+  {currentUser?.name?.charAt(0).toUpperCase() || "U"}
+</div>
+<span className="text-sm font-bold text-[#111111]">
+  {currentUser?.name || "User"}
+</span>
           </div>
         </div>
       </header>
@@ -432,6 +534,7 @@ function App() {
                     setSelectedProjectId(event.target.value);
                     setSelectedIncident(null);
                     setIsIncidentDrawerOpen(false);
+                    setAiAnalysis(null);
                   }}
                   className="appearance-none rounded-full bg-white py-2 pl-4 pr-11 text-[22px] font-extrabold tracking-[-0.035em] text-[#111111] shadow-sm outline-none ring-1 ring-black/5"
                 >
@@ -866,6 +969,15 @@ function App() {
             {!isIncidentLoading && selectedIncident && (
               <div className="space-y-6">
                 <div className="flex flex-wrap gap-3">
+                  <button
+                    onClick={handleAnalyzeIncident}
+                    disabled={isAiLoading}
+                    className="flex items-center gap-2 rounded-full bg-[#111111] px-5 py-3 text-sm font-extrabold text-white disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    <Sparkles size={16} />
+                    {isAiLoading ? "Analyzing..." : "Analyze with AI"}
+                  </button>
+
                   {selectedIncident.status !== "RESOLVED" && (
                     <button
                       onClick={() =>
@@ -960,6 +1072,93 @@ function App() {
                     {selectedIncident.fingerprint}
                   </p>
                 </div>
+
+                {aiAnalysis && (
+                  <div className="rounded-[28px] bg-[#EEF2FF] p-6">
+                    <div className="mb-5 flex items-center gap-3">
+                      <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white text-[#4F46E5]">
+                        <Sparkles size={21} />
+                      </div>
+
+                      <div>
+                        <h3 className="text-xl font-extrabold tracking-[-0.035em]">
+                          AI Incident Analysis
+                        </h3>
+                        <p className="text-sm font-semibold text-[#6B7280]">
+                          Root cause, fix, and prevention plan
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="space-y-5">
+                      <div className="rounded-[22px] bg-white p-5">
+                        <p className="text-xs font-extrabold uppercase tracking-[0.08em] text-[#9CA3AF]">
+                          Root Cause
+                        </p>
+                        <p className="mt-3 text-sm font-semibold leading-6 text-[#374151]">
+                          {aiAnalysis.rootCause}
+                        </p>
+                      </div>
+
+                      <div className="rounded-[22px] bg-white p-5">
+                        <p className="text-xs font-extrabold uppercase tracking-[0.08em] text-[#9CA3AF]">
+                          Suggested Fix
+                        </p>
+                        <p className="mt-3 text-sm font-semibold leading-6 text-[#374151]">
+                          {aiAnalysis.suggestedFix}
+                        </p>
+                      </div>
+
+                      <div className="rounded-[22px] bg-white p-5">
+                        <p className="text-xs font-extrabold uppercase tracking-[0.08em] text-[#9CA3AF]">
+                          Debug Checklist
+                        </p>
+
+                        <div className="mt-4 space-y-3">
+                          {aiAnalysis.debugChecklist.map((item, index) => (
+                            <div key={index} className="flex gap-3">
+                              <span className="flex h-6 min-w-6 items-center justify-center rounded-full bg-[#111111] text-xs font-extrabold text-white">
+                                {index + 1}
+                              </span>
+                              <p className="text-sm font-semibold leading-6 text-[#374151]">
+                                {item}
+                              </p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="rounded-[22px] bg-white p-5">
+                        <p className="text-xs font-extrabold uppercase tracking-[0.08em] text-[#9CA3AF]">
+                          Severity Reason
+                        </p>
+                        <p className="mt-3 text-sm font-semibold leading-6 text-[#374151]">
+                          {aiAnalysis.severityReason}
+                        </p>
+                      </div>
+
+                      <div className="rounded-[22px] bg-white p-5">
+                        <p className="text-xs font-extrabold uppercase tracking-[0.08em] text-[#9CA3AF]">
+                          Prevention Tip
+                        </p>
+                        <p className="mt-3 text-sm font-semibold leading-6 text-[#374151]">
+                          {aiAnalysis.preventionTip}
+                        </p>
+                      </div>
+
+                      {aiAnalysis.providerError && (
+                        <div className="rounded-[22px] bg-[#FFF7E8] p-5">
+                          <p className="text-xs font-extrabold uppercase tracking-[0.08em] text-[#D97706]">
+                            Provider fallback used
+                          </p>
+                          <p className="mt-3 break-words text-xs font-semibold leading-5 text-[#92400E]">
+                            {aiAnalysis.providerError}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
 
                 <div>
                   <h3 className="mb-4 text-xl font-extrabold tracking-[-0.035em]">
