@@ -50,16 +50,31 @@ export const registerUser = async (input: RegisterInput) => {
       }
     });
 
+    const project = await tx.project.create({
+  data: {
+    name: "Default Project",
+    slug: "default-project",
+    organizationId: organization.id
+  }
+});
+
     return {
       user: {
         id: user.id,
         name: user.name,
-        email: user.email
+        email: user.email,
+
       },
       organization: {
         id: organization.id,
-        name: organization.name
+        name: organization.name,
       },
+      project: {
+      id: project.id,
+      name: project.name,
+      slug: project.slug,
+      organizationId: project.organizationId
+    },
       role: "OWNER"
     };
   });

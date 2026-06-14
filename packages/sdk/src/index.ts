@@ -20,6 +20,10 @@ export class DebugPilot {
   private environment?: string;
 
   constructor(config: DebugPilotConfig) {
+    if (!config.apiKey) {
+      throw new Error("DebugPilot apiKey is required");
+    }
+
     this.apiKey = config.apiKey;
     this.endpoint = config.endpoint || "http://localhost:5050";
     this.service = config.service;

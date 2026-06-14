@@ -1,6 +1,6 @@
 import express from "express";
 import dotenv from "dotenv";
-import { DebugPilot } from "../../../packages/sdk/dist";
+import { DebugPilot } from "@harshitatiwari/debugpilot";
 
 dotenv.config();
 
