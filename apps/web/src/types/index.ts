@@ -69,3 +69,24 @@ export type AiAnalysis = {
   preventionTip: string;
   providerError?: string;
 };
+export type AiProvider =
+  | "OPENAI"
+  | "GEMINI"
+  | "ANTHROPIC"
+  | "OPENROUTER"
+  | "CUSTOM_OPENAI_COMPATIBLE";
+
+export type AiProviderSetting = {
+  id: string;
+  provider: AiProvider;
+  model: string;
+  baseUrl?: string | null;
+  keyPreview: string;
+  isActive: boolean;
+  updatedAt: string;
+};
+
+export type AiProviderSettingsResponse = {
+  hasActiveProvider: boolean;
+  settings: AiProviderSetting[];
+};

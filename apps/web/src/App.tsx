@@ -263,7 +263,15 @@ function App() {
       setAiAnalysis(response.data.data);
       showToast("AI analysis generated");
     } catch (error: unknown) {
-      setErrorMessage(getErrorMessage(error, "Failed to analyze incident"));
+      const message = getErrorMessage(error, "Failed to analyze incident");
+
+      if (message.toLowerCase().includes("ai provider key")) {
+        showToast("Add an AI provider key in Settings first");
+        navigate("/settings");
+        return;
+      }
+
+      showToast(message);
     } finally {
       setIsAiLoading(false);
     }
@@ -423,6 +431,7 @@ function App() {
           onClose={() => setIsIncidentDrawerOpen(false)}
           onAnalyzeIncident={handleAnalyzeIncident}
           onUpdateIncidentStatus={handleUpdateIncidentStatus}
+          onConfigureAiProvider={() => navigate("/settings")}
         />
       )}
 
