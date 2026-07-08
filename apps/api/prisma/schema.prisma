@@ -23,6 +23,7 @@ model User {
   updatedAt DateTime @updatedAt
 
   memberships OrganizationMember[]
+aiProviderSettings UserAiProviderSetting[]
 }
 
 model Organization {
@@ -123,4 +124,28 @@ model Incident {
   events  ApiEvent[]
 
   @@unique([projectId, fingerprint])
+}
+
+model UserAiProviderSetting {
+  id           String   @id @default(cuid())
+  userId       String
+
+  provider     String
+  model        String
+  baseUrl      String?
+
+  encryptedKey String
+  iv           String
+  authTag      String
+  keyPreview   String
+
+  isActive     Boolean  @default(true)
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, provider])
+  @@index([userId])
 }

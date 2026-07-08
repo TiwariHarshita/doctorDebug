@@ -8,6 +8,8 @@ import eventRoutes from "./routes/event.routes";
 import incidentRoutes from "./routes/incident.routes";
 import statsRoutes from "./routes/stats.routes";
 import aiRoutes from "./routes/ai.routes";
+import aiProviderSettingRoutes from "./routes/aiProviderSetting.routes";
+
 const app = express();
 
 app.use(cors());
@@ -20,4 +22,6 @@ app.use(eventRoutes);
 app.use(incidentRoutes);
 app.use(statsRoutes);
 app.use(aiRoutes);
+app.use(aiProviderSettingRoutes);
+
 export default app;
