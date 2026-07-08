@@ -1,6 +1,8 @@
 import { Request, Response } from "express";
 import { registerUser, loginUser,getCurrentUser } from "../services/auth.service";
 import { AuthRequest } from "../middlewares/auth.middleware";
+
+
 export const registerController = async (req: Request, res: Response) => {
   try {
     const result = await registerUser(req.body);

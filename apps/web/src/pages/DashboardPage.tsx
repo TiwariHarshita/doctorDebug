@@ -21,6 +21,7 @@ type DashboardPageProps = {
   mostUrgentIncident: Incident | undefined;
   onProjectChange: (projectId: string) => void;
   onIncidentClick: (incidentId: string) => void;
+  onViewDocs: () => void;
 };
 
 function getSeverityClass(severity: string) {
@@ -40,7 +41,8 @@ function DashboardPage({
   incidents,
   mostUrgentIncident,
   onProjectChange,
-  onIncidentClick
+  onIncidentClick,
+  onViewDocs
 }: DashboardPageProps) {
   const topService = stats?.topServices[0];
   const topRoute = stats?.topRoutes[0];
@@ -161,20 +163,22 @@ function DashboardPage({
             </p>
 
             <div className="mt-7 space-y-3">
-              {["Install SDK", "Add project API key", "Attach Express middleware"].map(
-                (step, index) => (
-                  <div
-                    key={step}
-                    className="flex items-center gap-3 rounded-2xl bg-white/10 px-4 py-3"
-                  >
-                    <span className="flex h-7 w-7 items-center justify-center rounded-full bg-white text-xs font-extrabold text-[#111111]">
-                      {index + 1}
-                    </span>
+              {[
+                "Install SDK",
+                "Add project API key",
+                "Attach Express middleware"
+              ].map((step, index) => (
+                <div
+                  key={step}
+                  className="flex items-center gap-3 rounded-2xl bg-white/10 px-4 py-3"
+                >
+                  <span className="flex h-7 w-7 items-center justify-center rounded-full bg-white text-xs font-extrabold text-[#111111]">
+                    {index + 1}
+                  </span>
 
-                    <p className="text-sm font-bold text-white/80">{step}</p>
-                  </div>
-                )
-              )}
+                  <p className="text-sm font-bold text-white/80">{step}</p>
+                </div>
+              ))}
             </div>
 
             <div className="mt-6 rounded-2xl bg-white/10 px-5 py-4 text-center font-mono text-[13px] font-semibold text-white/80">
@@ -182,7 +186,10 @@ function DashboardPage({
             </div>
 
             <div className="mt-6 flex justify-center">
-              <button className="rounded-full bg-[#DDEEFF] px-6 py-3 text-sm font-extrabold text-[#111111]">
+              <button
+                className="rounded-full bg-[#DDEEFF] px-6 py-3 text-sm font-extrabold text-[#111111] transition hover:bg-white"
+                onClick={onViewDocs}
+              >
                 View Docs
               </button>
             </div>

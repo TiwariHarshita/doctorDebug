@@ -12,7 +12,7 @@ export const requireAuth = (
   res: Response,
   next: NextFunction
 ) => {
-  console.log("REQUIRE AUTH HIT:", req.method, req.path);
+  //console.log("REQUIRE AUTH HIT:", req.method, req.path);
   const authHeader = req.headers.authorization;
 
   if (!authHeader || !authHeader.startsWith("Bearer ")) {

@@ -1,4 +1,4 @@
-import { Bell, Search } from "lucide-react";
+//import { Bell, Search } from "lucide-react";
 import type { CurrentUser } from "../types";
 
 type DashboardHeaderProps = {
@@ -19,13 +19,13 @@ function DashboardHeader({ currentUser }: DashboardHeaderProps) {
       </div>
 
       <div className="flex items-center gap-3">
-        <button className="flex h-12 w-12 items-center justify-center rounded-full bg-white text-[#111111] shadow-sm ring-1 ring-black/5">
+        {/* <button className="flex h-12 w-12 items-center justify-center rounded-full bg-white text-[#111111] shadow-sm ring-1 ring-black/5">
           <Search size={20} />
         </button>
 
         <button className="flex h-12 w-12 items-center justify-center rounded-full bg-white text-[#111111] shadow-sm ring-1 ring-black/5">
           <Bell size={19} />
-        </button>
+        </button> */}
 
         <div className="flex h-12 items-center gap-3 rounded-full bg-white px-3 pr-5 shadow-sm ring-1 ring-black/5">
           <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#DDEEFF] text-sm font-bold text-[#2563EB]">

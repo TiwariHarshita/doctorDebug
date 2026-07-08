@@ -22,6 +22,7 @@ import DashboardPage from "./pages/DashboardPage";
 import ProjectsPage from "./pages/ProjectsPage";
 import AnalyticsPage from "./pages/AnalyticsPage";
 import SettingsPage from "./pages/SettingsPage";
+import DocsPage from "./pages/DocsPage";
 
 import type {
   AiAnalysis,
@@ -362,6 +363,7 @@ function App() {
               mostUrgentIncident={mostUrgentIncident}
               onProjectChange={handleProjectChange}
               onIncidentClick={handleIncidentClick}
+              onViewDocs={() => navigate("/docs")}
             />
           }
         />
@@ -407,6 +409,8 @@ function App() {
           element={<SettingsPage currentUser={currentUser} />}
         />
 
+        <Route path="/docs" element={<DocsPage />} />
+
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>
 
@@ -423,7 +427,7 @@ function App() {
       )}
 
       {toastMessage && (
-        <div className="fixed bottom-6 left-1/2 z-[60] -translate-x-1/2 rounded-full bg-[#101010] px-6 py-4 text-sm font-extrabold text-white shadow-2xl">
+        <div className="fixed bottom-6 left-1/2 z-60 -translate-x-1/2 rounded-full bg-[#101010] px-6 py-4 text-sm font-extrabold text-white shadow-2xl">
           {toastMessage}
         </div>
       )}
