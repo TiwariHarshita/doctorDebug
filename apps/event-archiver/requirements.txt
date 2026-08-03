@@ -1,0 +1,1 @@
+# boto3 is included in the managed AWS Lambda Python runtime.

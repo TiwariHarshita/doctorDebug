@@ -1,0 +1,92 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: DebugPilot asynchronous event archive pipeline
+
+Parameters:
+  EnvironmentName:
+    Type: String
+    Default: dev
+    AllowedPattern: "[a-zA-Z0-9-]+"
+
+Resources:
+  EventArchiveBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      LifecycleConfiguration:
+        Rules:
+          - Id: DeleteOldDevelopmentArchives
+            Status: Enabled
+            ExpirationInDays: 30
+
+  EventArchiveDeadLetterQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      MessageRetentionPeriod: 1209600
+      SqsManagedSseEnabled: true
+
+  EventArchiveQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      VisibilityTimeout: 90
+      MessageRetentionPeriod: 345600
+      SqsManagedSseEnabled: true
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt EventArchiveDeadLetterQueue.Arn
+        maxReceiveCount: 3
+
+  EventArchiverFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub debugpilot-event-archiver-${EnvironmentName}
+      CodeUri: ../apps/event-archiver/
+      Handler: handler.lambda_handler
+      Runtime: python3.13
+      Architectures:
+        - arm64
+      MemorySize: 256
+      Timeout: 30
+      Environment:
+        Variables:
+          EVENT_ARCHIVE_BUCKET: !Ref EventArchiveBucket
+      Policies:
+        - S3WritePolicy:
+            BucketName: !Ref EventArchiveBucket
+      Events:
+        QueueEvent:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt EventArchiveQueue.Arn
+            BatchSize: 10
+            FunctionResponseTypes:
+              - ReportBatchItemFailures
+
+Outputs:
+  EventArchiveQueueUrl:
+    Description: Set this as EVENT_ARCHIVE_QUEUE_URL in the API
+    Value: !Ref EventArchiveQueue
+
+  EventArchiveQueueArn:
+    Description: Use this ARN in the App Runner instance-role policy
+    Value: !GetAtt EventArchiveQueue.Arn
+
+  EventArchiveBucketName:
+    Description: Set this as EVENT_ARCHIVE_BUCKET in the API
+    Value: !Ref EventArchiveBucket
+
+  EventArchiveBucketArn:
+    Description: Use this ARN in the App Runner instance-role policy
+    Value: !GetAtt EventArchiveBucket.Arn
+
+  EventArchiveDeadLetterQueueUrl:
+    Value: !Ref EventArchiveDeadLetterQueue

@@ -1,5 +1,6 @@
 import { prisma } from "../config/prisma";
 import { findOrCreateIncident } from "./incident.service";
+import { enqueueEventArchive } from "./eventArchiveQueue.service";
 
 type CreateEventInput = {
   projectId: string;
@@ -51,12 +52,38 @@ export const createEvent = async (input: CreateEventInput) => {
     }
   });
 
+  let archiveQueued = false;
+
+  try {
+    archiveQueued = await enqueueEventArchive({
+      schemaVersion: 1,
+      eventId: event.id,
+      projectId: event.projectId,
+      incidentId: event.incidentId,
+      level: event.level,
+      message: event.message,
+      stack: event.stack,
+      service: event.service,
+      route: event.route,
+      environment: event.environment,
+      metadata: event.metadata,
+      createdAt: event.createdAt.toISOString()
+    });
+  } catch (error) {
+    // Archival is secondary. The main monitoring request should not fail after
+    // the event has already been stored in PostgreSQL.
+    console.error("Failed to enqueue event archive", {
+      eventId: event.id,
+      error
+    });
+  }
+
   return {
     event,
-    incident
+    incident,
+    archiveQueued
   };
 };
-
 
 export const getEventsForProject = async (
   projectId: string,
@@ -83,7 +110,7 @@ export const getEventsForProject = async (
     throw new Error("You do not have access to this project");
   }
 
-  const events = await prisma.apiEvent.findMany({
+  return prisma.apiEvent.findMany({
     where: {
       projectId
     },
@@ -102,6 +129,4 @@ export const getEventsForProject = async (
     },
     take: 50
   });
-
-  return events;
 };

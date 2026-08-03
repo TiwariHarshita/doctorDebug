@@ -1,6 +1,7 @@
 import { Router } from "express";
 import {
   createEventController,
+  getEventArchiveUrlController,
   getProjectEventsController
 } from "../controllers/event.controller";
 import { requireAuth } from "../middlewares/auth.middleware";
@@ -13,6 +14,12 @@ router.get(
   "/projects/:projectId/events",
   requireAuth,
   getProjectEventsController
+);
+
+router.get(
+  "/events/:id/archive-url",
+  requireAuth,
+  getEventArchiveUrlController
 );
 
 export default router;

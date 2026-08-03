@@ -1,14 +1,18 @@
 import { Sparkles } from "lucide-react";
 import type { AiAnalysis, IncidentDetail, IncidentStatus } from "../types";
-
+import { DownloadEventArchiveButton } from "./DownloadEventArchiveButton";
 type IncidentDrawerProps = {
   selectedIncident: IncidentDetail | null;
   aiAnalysis: AiAnalysis | null;
   isIncidentLoading: boolean;
   isAiLoading: boolean;
   onClose: () => void;
-  onAnalyzeIncident: () => void;
-  onUpdateIncidentStatus: (incidentId: string, status: IncidentStatus) => void;
+  onAnalyzeIncident: () => void | Promise<void>;
+  onUpdateIncidentStatus: (
+    incidentId: string,
+    status: IncidentStatus
+  ) => void | Promise<void>;
+  onConfigureAiProvider: () => void;
 };
 
 function getSeverityClass(severity: string) {
@@ -49,7 +53,8 @@ function IncidentDrawer({
   isAiLoading,
   onClose,
   onAnalyzeIncident,
-  onUpdateIncidentStatus
+  onUpdateIncidentStatus,
+  onConfigureAiProvider
 }: IncidentDrawerProps) {
   return (
     <div className="fixed inset-0 z-50 flex justify-end bg-black/25">
@@ -90,6 +95,14 @@ function IncidentDrawer({
                 <Sparkles size={16} />
                 {isAiLoading ? "Analyzing..." : "Analyze with AI"}
               </button>
+
+            <button
+  type="button"
+  onClick={onConfigureAiProvider}
+  className="rounded-full bg-[#EEF2FF] px-5 py-3 text-sm font-extrabold text-[#4F46E5]"
+>
+  AI Settings
+</button>
 
               {selectedIncident.status !== "RESOLVED" && (
                 <button
@@ -293,6 +306,8 @@ function IncidentDrawer({
                         </pre>
                       </div>
                     )}
+
+                    <DownloadEventArchiveButton eventId={event.id} />
 
                     <p className="mt-4 text-xs font-bold text-[#9CA3AF]">
                       {new Date(event.createdAt).toLocaleString()}
