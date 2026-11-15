@@ -1,0 +1,11 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const auth_middleware_1 = require("../middlewares/auth.middleware");
+const aiProviderSetting_controller_1 = require("../controllers/aiProviderSetting.controller");
+const router = (0, express_1.Router)();
+router.get("/ai/settings", auth_middleware_1.requireAuth, aiProviderSetting_controller_1.getAiProviderSettingsController);
+router.put("/ai/settings", auth_middleware_1.requireAuth, aiProviderSetting_controller_1.saveAiProviderSettingController);
+router.patch("/ai/settings/active", auth_middleware_1.requireAuth, aiProviderSetting_controller_1.setActiveAiProviderController);
+router.delete("/ai/settings/:provider", auth_middleware_1.requireAuth, aiProviderSetting_controller_1.deleteAiProviderSettingController);
+exports.default = router;

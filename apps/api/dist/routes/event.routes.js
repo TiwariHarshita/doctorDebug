@@ -1,0 +1,10 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const event_controller_1 = require("../controllers/event.controller");
+const auth_middleware_1 = require("../middlewares/auth.middleware");
+const router = (0, express_1.Router)();
+router.post("/api/v1/events", event_controller_1.createEventController);
+router.get("/projects/:projectId/events", auth_middleware_1.requireAuth, event_controller_1.getProjectEventsController);
+router.get("/events/:id/archive-url", auth_middleware_1.requireAuth, event_controller_1.getEventArchiveUrlController);
+exports.default = router;

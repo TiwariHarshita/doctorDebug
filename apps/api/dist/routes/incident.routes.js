@@ -1,0 +1,10 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const auth_middleware_1 = require("../middlewares/auth.middleware");
+const incident_controller_1 = require("../controllers/incident.controller");
+const router = (0, express_1.Router)();
+router.get("/projects/:projectId/incidents", auth_middleware_1.requireAuth, incident_controller_1.getIncidentsController);
+router.get("/incidents/:id", auth_middleware_1.requireAuth, incident_controller_1.getIncidentByIdController);
+router.patch("/incidents/:id/status", auth_middleware_1.requireAuth, incident_controller_1.updateIncidentStatusController);
+exports.default = router;
