@@ -431,7 +431,7 @@ function App() {
           onClose={() => setIsIncidentDrawerOpen(false)}
           onAnalyzeIncident={handleAnalyzeIncident}
           onUpdateIncidentStatus={handleUpdateIncidentStatus}
-          onConfigureAiProvider={() => navigate("/settings")}
+          //onConfigureAiProvider={() => navigate("/settings")}
         />
       )}
 
