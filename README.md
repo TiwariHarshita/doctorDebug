@@ -4,7 +4,7 @@
 
 DoctorDebug helps developers track backend errors, monitor incidents, and analyze failures using AI. Integrate the npm SDK into your Express application to send errors directly to the DoctorDebug dashboard.
 
-**[Live Application](https://doctordebug-rho.vercel.app/dashboard)** | **[npm Package](https://www.npmjs.com/package/@nofacecodexd/crackdock)**
+**[Live Application](https://doctordebug-rho.vercel.app)** | **[npm Package](https://www.npmjs.com/package/@nofacecodexd/crackdock)**
 
 ## Features
 
@@ -28,7 +28,7 @@ DoctorDebug helps developers track backend errors, monitor incidents, and analyz
 
 ### 1. Create an Account
 
-Visit the [DoctorDebug Dashboard](https://doctordebug-rho.vercel.app/dashboard) and sign up or log in.
+Visit the [DoctorDebug Dashboard](https://doctordebug-rho.vercel.app) and sign up or log in.
 
 ### 2. Create a Project
 
@@ -120,7 +120,7 @@ try {
 
 ## Links
 
-- **Live App:** https://doctordebug-rho.vercel.app/dashboard
+- **Live App:** https://doctordebug-rho.vercel.app
 - **npm Package:** https://www.npmjs.com/package/@nofacecodexd/crackdock
 - **GitHub:** https://github.com/TiwariHarshita/doctorDebug
 
